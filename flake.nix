@@ -6,18 +6,22 @@
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
     nix-darwin.url = "github:nix-darwin/nix-darwin/master";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
+    
+    # Add Home Manager
+    home-manager.url = "github:nix-community/home-manager";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{ self, nix-darwin, nixpkgs, nix-homebrew }:
+  outputs = inputs@{ self, nix-darwin, nixpkgs, nix-homebrew, home-manager }:
   let
     configuration = { pkgs, config, ... }: {
       system.primaryUser = "derangga";
       nixpkgs.config.allowUnfree = true;
-      # List packages installed in system profile. To search by name, run:
-      # $ nix-env -qaP | grep wget
+      
+      # List packages installed in system profile
       environment.systemPackages = [
           pkgs.cargo
-		      pkgs.eza
+          pkgs.eza
           pkgs.fd
           pkgs.fnm
           pkgs.ffmpeg
@@ -26,24 +30,26 @@
           pkgs.gnupg
           pkgs.go
           pkgs.git 
-		      pkgs.lazygit 
-		      pkgs.lua
+          pkgs.lazygit 
+          pkgs.lua
           pkgs.mkalias
           pkgs.neovim
           pkgs.javaPackages.compiler.openjdk17
-		      pkgs.ripgrep
+          pkgs.ripgrep
           pkgs.rbenv
-		  ];
-
-      fonts.packages = [
-	      pkgs.nerd-fonts.jetbrains-mono	
       ];
 
-      programs.zsh = {
-        enable = true;
-        enableCompletion = true;
-        enableAutosuggestions = true;
-        enableFzfHistory = true;
+      fonts.packages = [
+        pkgs.nerd-fonts.jetbrains-mono	
+      ];
+
+      # Basic zsh enable (Home Manager will handle the detailed config)
+      programs.zsh.enable = true;
+
+      # Declare the user - required for home manager on nix-darwin
+      users.users.derangga = {
+        name = "derangga";
+        home = "/Users/derangga";
       };
 
       homebrew = {
@@ -71,42 +77,74 @@
             done
           '';
  
-      # Necessary for using flakes on this system.
+      # Necessary for using flakes on this system
       nix.settings.experimental-features = "nix-command flakes";
 
-      # Enable alternative shell support in nix-darwin.
-      # programs.fish.enable = true;
-
-      # Set Git commit hash for darwin-version.
+      # Set Git commit hash for darwin-version
       system.configurationRevision = self.rev or self.dirtyRev or null;
 
-      # Used for backwards compatibility, please read the changelog before changing.
-      # $ darwin-rebuild changelog
+      # Used for backwards compatibility
       system.stateVersion = 6;
 
-      # The platform the configuration will be used on.
+      # The platform the configuration will be used on
       nixpkgs.hostPlatform = "aarch64-darwin";
     };
   in
   {
-    # Build darwin flake using:
-    # $ darwin-rebuild build --flake .#simple
     darwinConfigurations."maclop" = nix-darwin.lib.darwinSystem {
       modules = [ 
           configuration 
           nix-homebrew.darwinModules.nix-homebrew
           {
             nix-homebrew = {
-              # Install Homebrew under the default prefix
               enable = true;
-
-              # Apple Silicon Only: Also install Homebrew under the default Intel prefix for Rosetta 2
               enableRosetta = true;
-
-              # User owning the Homebrew prefix
               user = "derangga";
-
               autoMigrate = true;
+            };
+          }
+          
+          # Add Home Manager module
+          home-manager.darwinModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.derangga = { pkgs, ... }: {
+              # Home Manager needs a bit of information about you and the paths it should manage
+              home.stateVersion = "25.11";
+              home.username = "derangga";
+              home.homeDirectory = "/Users/derangga";
+              
+              # Zsh with Oh My Zsh configuration
+              programs.zsh = {
+                enable = true;
+                enableCompletion = true;
+                autosuggestion.enable = true;
+                syntaxHighlighting.enable = true;
+                
+                oh-my-zsh = {
+                  enable = true;
+                  theme = "amuse";  # Change to your preferred theme
+                  plugins = [
+                    "git"
+                    "fzf"
+                  ];
+                };
+                
+                # Custom aliases
+                shellAliases = {
+                  ls = "eza --icons --color=always --group-directories-first";
+                  ll = "eza -alF --icons --color=always --group-directories-first";
+                  lg = "lazygit";
+                  vim = "nvim";
+                };
+                
+                # Additional init commands
+                initContent = ''
+                  # Add any custom zsh configuration here
+                  export EDITOR=nvim
+                '';
+              };
             };
           }
         ];
