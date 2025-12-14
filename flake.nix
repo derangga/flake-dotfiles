@@ -7,7 +7,6 @@
     nix-darwin.url = "github:nix-darwin/nix-darwin/master";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
     
-    # Add Home Manager
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
   };
@@ -18,9 +17,11 @@
       system.primaryUser = "derangga";
       nixpkgs.config.allowUnfree = true;
       
-      # List packages installed in system profile
       environment.systemPackages = [
+          pkgs.android-tools
           pkgs.cargo
+          pkgs.colima
+          pkgs.docker-compose
           pkgs.eza
           pkgs.fd
           pkgs.fnm
@@ -104,34 +105,32 @@
             };
           }
           
-          # Add Home Manager module
           home-manager.darwinModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.users.derangga = { pkgs, ... }: {
-              # Home Manager needs a bit of information about you and the paths it should manage
               home.stateVersion = "25.11";
               home.username = "derangga";
               home.homeDirectory = "/Users/derangga";
               
-              # Zsh with Oh My Zsh configuration
+              home.packages = [
+                pkgs.zsh-powerlevel10k
+              ];
+
               programs.zsh = {
                 enable = true;
                 enableCompletion = true;
                 autosuggestion.enable = true;
-                syntaxHighlighting.enable = true;
                 
                 oh-my-zsh = {
                   enable = true;
-                  theme = "amuse";  # Change to your preferred theme
                   plugins = [
                     "git"
                     "fzf"
                   ];
                 };
                 
-                # Custom aliases
                 shellAliases = {
                   ls = "eza --icons --color=always --group-directories-first";
                   ll = "eza -alF --icons --color=always --group-directories-first";
@@ -139,10 +138,15 @@
                   vim = "nvim";
                 };
                 
-                # Additional init commands
                 initContent = ''
                   # Add any custom zsh configuration here
                   export EDITOR=nvim
+
+                  # Powerlevel10k theme
+                  source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme
+                  
+                  # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+                  [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
                 '';
               };
             };
